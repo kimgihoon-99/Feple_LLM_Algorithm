@@ -43,13 +43,13 @@ def compute_stability_score(row):
 df['Stability_score'] = df.apply(compute_stability_score, axis=1)
 
 def grade_from_cutoff(score, cutoffs):
-    if score >= cutoffs["A+"]: return "A+"
-    elif score >= cutoffs["A"]: return "A"
-    elif score >= cutoffs["B+"]: return "B+"
+    if score >= cutoffs["A"]: return "A"
     elif score >= cutoffs["B"]: return "B"
-    elif score >= cutoffs["C+"]: return "C+"
     elif score >= cutoffs["C"]: return "C"
-    else: return "D"
+    elif score >= cutoffs["D"]: return "D"
+    elif score >= cutoffs["E"]: return "E"
+    elif score >= cutoffs["F"]: return "F"
+    else: return "G"
 
 df['Stability_Grade'] = df['Stability_score'].apply(lambda x: grade_from_cutoff(x, cutoffs))
 

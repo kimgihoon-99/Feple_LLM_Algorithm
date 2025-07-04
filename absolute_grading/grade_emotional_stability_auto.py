@@ -65,13 +65,13 @@ def compute_emotional_stability_score(row):
     return max(0.0, min(raw, 1.0))
 
 def grade_from_cutoff(score, cutoffs):
-    if score >= cutoffs["A+"]: return "A+"
-    elif score >= cutoffs["A"]: return "A"
-    elif score >= cutoffs["B+"]: return "B+"
+    if score >= cutoffs["A"]: return "A"
     elif score >= cutoffs["B"]: return "B"
-    elif score >= cutoffs["C+"]: return "C+"
     elif score >= cutoffs["C"]: return "C"
-    else: return "D"
+    elif score >= cutoffs["D"]: return "D"
+    elif score >= cutoffs["E"]: return "E"
+    elif score >= cutoffs["F"]: return "F"
+    else: return "G"
 
 if check_minmax(new_minmax, old_minmax):
     print('기존 cut-off/minmax로 평가')
@@ -101,13 +101,13 @@ else:
         score = max(0.0, min(raw, 1.0))
         scores.append(score)
     new_cutoff = {
-        "A+": float(np.percentile(scores, 90)),
-        "A":  float(np.percentile(scores, 80)),
-        "B+": float(np.percentile(scores, 70)),
-        "B":  float(np.percentile(scores, 60)),
-        "C+": float(np.percentile(scores, 50)),
-        "C":  float(np.percentile(scores, 40)),
-        "D":  -1e9
+        "A": float(np.percentile(scores, 90)),
+        "B": float(np.percentile(scores, 80)),
+        "C": float(np.percentile(scores, 70)),
+        "D": float(np.percentile(scores, 60)),
+        "E": float(np.percentile(scores, 50)),
+        "F": float(np.percentile(scores, 40)),
+        "G": -1e9
     }
     with open(CUTOFF_PATH, 'w') as f:
         json.dump({'cutoff': new_cutoff, 'minmax': minmax}, f, indent=2)

@@ -35,13 +35,13 @@ def compute_politeness_score(row):
     return (hr + pr + er + (1 - nr)) / 4
 
 def grade_from_cutoff(score, cutoffs):
-    if score >= cutoffs["A+"]: return "A+"
-    elif score >= cutoffs["A"]: return "A"
-    elif score >= cutoffs["B+"]: return "B+"
+    if score >= cutoffs["A"]: return "A"
     elif score >= cutoffs["B"]: return "B"
-    elif score >= cutoffs["C+"]: return "C+"
     elif score >= cutoffs["C"]: return "C"
-    else: return "D"
+    elif score >= cutoffs["D"]: return "D"
+    elif score >= cutoffs["E"]: return "E"
+    elif score >= cutoffs["F"]: return "F"
+    else: return "G"
 
 def clip_outliers_iqr(df, cols):
     for col in cols:
@@ -99,13 +99,13 @@ else:
         score = (hr + pr + er + (1 - nr)) / 4
         scores.append(score)
     new_cutoff = {
-        "A+": float(np.percentile(scores, 90)),
-        "A":  float(np.percentile(scores, 80)),
-        "B+": float(np.percentile(scores, 70)),
-        "B":  float(np.percentile(scores, 60)),
-        "C+": float(np.percentile(scores, 50)),
-        "C":  float(np.percentile(scores, 40)),
-        "D":  -1e9
+        "A": float(np.percentile(scores, 90)),
+        "B": float(np.percentile(scores, 80)),
+        "C": float(np.percentile(scores, 70)),
+        "D": float(np.percentile(scores, 60)),
+        "E": float(np.percentile(scores, 50)),
+        "F": float(np.percentile(scores, 40)),
+        "G": -1e9
     }
     # minmax와 cut-off를 함께 저장
     with open(CUTOFF_PATH, 'w') as f:

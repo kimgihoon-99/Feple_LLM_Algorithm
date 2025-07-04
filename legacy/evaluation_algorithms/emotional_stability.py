@@ -26,14 +26,14 @@ def compute_emotional_stability_score(row):
     # 0~1 범위로 클램프
     return max(0.0, min(raw, 1.0))
 
-def grade_from_percentile(p):
-    if   p >= 0.90: return "A+"
-    elif p >= 0.80: return "A"
-    elif p >= 0.70: return "B+"
-    elif p >= 0.60: return "B"
-    elif p >= 0.50: return "C+"
-    elif p >= 0.40: return "C"
-    else:           return "D"
+def grade_from_cutoff(score, cutoffs):
+    if score >= cutoffs["A"]: return "A"
+    elif score >= cutoffs["B"]: return "B"
+    elif score >= cutoffs["C"]: return "C"
+    elif score >= cutoffs["D"]: return "D"
+    elif score >= cutoffs["E"]: return "E"
+    elif score >= cutoffs["F"]: return "F"
+    else: return "G"
 
 def evaluate_emotional_stability(df):
     # Min-Max 정규화 적용
@@ -42,7 +42,7 @@ def evaluate_emotional_stability(df):
     df['customer_sentiment_late_norm']  = minmax_normalize(df['customer_sentiment_late'])
     df['EmotionalStability_score'] = df.apply(compute_emotional_stability_score, axis=1)
     df['percentile'] = df['EmotionalStability_score'].rank(pct=True)
-    df['EmotionalStability_Grade'] = df['percentile'].apply(grade_from_percentile)
+    df['EmotionalStability_Grade'] = df['percentile'].apply(grade_from_cutoff)
     return df[['customer_sentiment_early','customer_sentiment_early_norm','customer_sentiment_late','customer_sentiment_late_norm','EmotionalStability_score','percentile','EmotionalStability_Grade']]
 
 if __name__ == "__main__":

@@ -33,13 +33,13 @@ def compute_empathy_score(row):
 df['Empathy_score'] = df.apply(compute_empathy_score, axis=1)
 
 def grade_from_cutoff(score, cutoffs):
-    if score >= cutoffs["A+"]: return "A+"
-    elif score >= cutoffs["A"]: return "A"
-    elif score >= cutoffs["B+"]: return "B+"
+    if score >= cutoffs["A"]: return "A"
     elif score >= cutoffs["B"]: return "B"
-    elif score >= cutoffs["C+"]: return "C+"
     elif score >= cutoffs["C"]: return "C"
-    else: return "D"
+    elif score >= cutoffs["D"]: return "D"
+    elif score >= cutoffs["E"]: return "E"
+    elif score >= cutoffs["F"]: return "F"
+    else: return "G"
 
 df['Empathy_Grade'] = df['Empathy_score'].apply(lambda x: grade_from_cutoff(x, cutoffs))
 
