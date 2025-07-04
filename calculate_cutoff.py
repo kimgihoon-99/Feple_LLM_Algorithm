@@ -2,11 +2,11 @@ import pandas as pd
 import numpy as np
 import json
 import os
-from evaluation_algorithms.politeness import evaluate_politeness
-from evaluation_algorithms.empathy import evaluate_empathy
-from evaluation_algorithms.problem_solving import compute_problem_solving_score_and_grade
-from evaluation_algorithms.emotional_stability import evaluate_emotional_stability
-from evaluation_algorithms.stability import compute_stability_score_and_grade
+from legacy.evaluation_algorithms.politeness import evaluate_politeness
+from legacy.evaluation_algorithms.empathy import evaluate_empathy
+from legacy.evaluation_algorithms.problem_solving import compute_problem_solving_score_and_grade
+from legacy.evaluation_algorithms.emotional_stability import evaluate_emotional_stability
+from legacy.evaluation_algorithms.stability import compute_stability_score_and_grade
 
 # robust하게 현재 파일 기준으로 데이터 경로 지정
 DATA_PATH = os.path.join(os.path.dirname(__file__), 'data', 'dummy_data.csv')
