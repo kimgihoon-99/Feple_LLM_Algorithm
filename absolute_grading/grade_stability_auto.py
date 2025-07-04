@@ -105,4 +105,17 @@ for col in cols:
 eval_df['Stability_score'] = eval_df.apply(compute_stability_score, axis=1)
 eval_df['Stability_Grade'] = eval_df['Stability_score'].apply(lambda x: grade_from_cutoff(x, cutoffs))
 
-print(eval_df[['Stability_score', 'Stability_Grade']].head(20)) 
+print(eval_df[['Stability_score', 'Stability_Grade']].head(20))
+
+def evaluate_stability(df):
+    cols = ['interruption_count', 'silence_ratio', 'talk_ratio']
+    with open(CUTOFF_PATH) as f:
+        cutoff_json = json.load(f)
+        cutoffs = cutoff_json['cutoff']
+        minmax = cutoff_json['minmax']
+    df = clip_outliers_iqr(df.copy(), cols)
+    for col in cols:
+        df[f'{col}_norm'] = minmax_normalize(df[col], minmax[col]['min'], minmax[col]['max'])
+    df['Stability_score'] = df.apply(compute_stability_score, axis=1)
+    df['Stability_Grade'] = df['Stability_score'].apply(lambda x: grade_from_cutoff(x, cutoffs))
+    return df[['Stability_score', 'Stability_Grade']] 

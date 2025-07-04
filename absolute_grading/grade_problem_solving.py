@@ -32,4 +32,24 @@ if not set(df['suggestions']).issubset(valid_scores):
     raise ValueError("유효하지 않은 점수 발견")
 df['ProblemSolving_Grade'] = df['suggestions'].apply(grade_from_score)
 
-print(df[['suggestions', 'ProblemSolving_Grade']].head(20)) 
+print(df[['suggestions', 'ProblemSolving_Grade']].head(20))
+
+def evaluate_problem_solving(df):
+    def grade_from_score(score: float) -> str:
+        if score == 1.0:
+            return "A"
+        elif score == 0.6:
+            return "B"
+        elif score == 0.2:
+            return "C"
+        elif score == 0.0:
+            return "D"
+        else:
+            return "Invalid"
+    valid_scores = {0.0, 0.2, 0.6, 1.0}
+    if not set(df['suggestions']).issubset(valid_scores):
+        raise ValueError("유효하지 않은 점수 발견")
+    df = df.copy()
+    df['ProblemSolving_score'] = df['suggestions']
+    df['ProblemSolving_Grade'] = df['suggestions'].apply(grade_from_score)
+    return df[['ProblemSolving_score', 'ProblemSolving_Grade']] 

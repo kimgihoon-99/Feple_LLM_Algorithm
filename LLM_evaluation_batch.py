@@ -5,33 +5,54 @@ import json
 import pandas as pd
 import numpy as np
 import sys
-sys.path.append('./evaluation_algorithms')
-from politeness import evaluate_politeness
-from empathy import evaluate_empathy
-from problem_solving import evaluate_problem_solving
-from emotional_stability import evaluate_emotional_stability
-from stability import evaluate_stability
 
 # .env 파일에서 환경변수 불러오기
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# 1. 더미 데이터 로드 (각 row가 하나의 상담 세션, session_id 컬럼 포함 가정)
-df = pd.read_excel('data/dummy_data.xlsx')
+# 1. new_data.csv 로드
+DATA_PATH = os.path.join('data', 'new_data.csv')
+df = pd.read_csv(DATA_PATH)
 
-# session_id가 없으면 자동 생성
-def ensure_session_id(df):
-    if 'session_id' not in df.columns:
-        df = df.copy()
-        df['session_id'] = [f'session_{i+1:03d}' for i in range(len(df))]
-    return df
+# 2. 각 지표별 평가 함수 import (외부 호출 evaluate_XXX 함수 사용)
+from absolute_grading.grade_politeness_auto import evaluate_politeness
+from absolute_grading.grade_empathy_auto import evaluate_empathy
+from absolute_grading.grade_problem_solving import evaluate_problem_solving
+from absolute_grading.grade_emotional_stability_auto import evaluate_emotional_stability
+from absolute_grading.grade_stability_auto import evaluate_stability
 
-df = ensure_session_id(df)
+# 3. 점수/등급 산출 (여기서는 첫 번째 row만 예시)
+session_id = df['session_id'].iloc[0] if 'session_id' in df.columns else 'unknown_session'
+politeness_result = evaluate_politeness(df)
+empathy_result = evaluate_empathy(df)
+problem_solving_result = evaluate_problem_solving(df)
+emotional_stability_result = evaluate_emotional_stability(df)
+stability_result = evaluate_stability(df)
 
-# 2. 결과 저장 리스트
-eval_results = []
+evaluation_result = {
+    "Politeness": {
+        "score": politeness_result['Politeness_score'].iloc[0],
+        "grade": politeness_result['Politeness_Grade'].iloc[0]
+    },
+    "Empathy": {
+        "score": empathy_result['Empathy_score'].iloc[0],
+        "grade": empathy_result['Empathy_Grade'].iloc[0]
+    },
+    "ProblemSolving": {
+        "score": problem_solving_result['ProblemSolving_score'].iloc[0],
+        "grade": problem_solving_result['ProblemSolving_Grade'].iloc[0]
+    },
+    "EmotionalStability": {
+        "score": emotional_stability_result['EmotionalStability_score'].iloc[0],
+        "grade": emotional_stability_result['EmotionalStability_Grade'].iloc[0]
+    },
+    "Stability": {
+        "score": stability_result['Stability_score'].iloc[0],
+        "grade": stability_result['Stability_Grade'].iloc[0]
+    }
+}
 
-# 3. 지원 모델 자동 선택 함수
+# Gemini 지원 모델 자동 선택 함수
 def get_gemini_model():
     model_list_url = f"https://generativelanguage.googleapis.com/v1/models?key={GEMINI_API_KEY}"
     model_list_resp = requests.get(model_list_url)
@@ -54,101 +75,52 @@ def get_gemini_model():
 
 model_name = get_gemini_model()
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1/models/{model_name}:generateContent"
-headers = {"Content-Type": "application/json"}
 
-# 4. 전체 세션에 대해 평가지표별 일괄 평가
-politeness_cols = ['honorific_ratio', 'positive_word_ratio', 'negative_word_ratio', 'euphonious_word_ratio']
-empathy_cols = ['empathy_ratio', 'apology_ratio']
-problem_cols = ['suggestions']
-emotional_cols = ['customer_sentiment_early', 'customer_sentiment_late']
-stability_cols = ['interruption_count', 'silence_ratio', 'talk_ratio']
-
-politeness_df = df[politeness_cols].copy()
-empathy_df = df[empathy_cols].copy()
-problem_df = df[problem_cols].copy()
-emotional_df = df[emotional_cols].copy()
-stability_df = df[stability_cols].copy()
-
-politeness_result = evaluate_politeness(politeness_df)
-empathy_result = evaluate_empathy(empathy_df)
-problem_result = evaluate_problem_solving(problem_df)
-emotional_result = evaluate_emotional_stability(emotional_df)
-stability_result = evaluate_stability(stability_df)
-
-# 5. 각 세션별 반복 처리 (row별로 결과 추출)
-for idx, row in df.iterrows():
-    session_id = row['session_id']
-    evaluation_result = {
-        "Politeness": {
-            "score": float(politeness_result['Politeness_score'].iloc[idx]),
-            "grade": politeness_result['Politeness_Grade'].iloc[idx]
-        },
-        "Empathy": {
-            "score": float(empathy_result['Empathy_score'].iloc[idx]),
-            "grade": empathy_result['Empathy_Grade'].iloc[idx]
-        },
-        "ProblemSolving": {
-            "score": float(problem_result['Problem_Solving_score'].iloc[idx]),
-            "grade": problem_result['Problem_Solving_Grade'].iloc[idx]
-        },
-        "EmotionalStability": {
-            "score": float(emotional_result['EmotionalStability_score'].iloc[idx]),
-            "grade": emotional_result['EmotionalStability_Grade'].iloc[idx]
-        },
-        "Stability": {
-            "score": float(stability_result['Stability_score'].iloc[idx]),
-            "grade": stability_result['Stability_Grade'].iloc[idx]
-        }
-    }
-
-    # Gemini 프롬프트 생성
-    prompt = f"""
-아래는 상담사의 5가지 평가 지표별 점수와 등급입니다. 각 항목을 참고하여 상담사의 강점, 약점, 그리고 구체적인 코칭 멘트를 작성해 주세요.
-
-- 정중함 및 언어 품질 (Politeness): 점수 {evaluation_result['Politeness']['score']:.3f}, 등급 {evaluation_result['Politeness']['grade']}
-- 공감적 소통 (Empathy): 점수 {evaluation_result['Empathy']['score']:.3f}, 등급 {evaluation_result['Empathy']['grade']}
-- 문제 해결 역량 (Problem Solving): 점수 {evaluation_result['ProblemSolving']['score']:.3f}, 등급 {evaluation_result['ProblemSolving']['grade']}
-- 감정 안정성 (Emotional Stability): 점수 {evaluation_result['EmotionalStability']['score']:.3f}, 등급 {evaluation_result['EmotionalStability']['grade']}
-- 대화 흐름 및 응대 태도 (Stability): 점수 {evaluation_result['Stability']['score']:.3f}, 등급 {evaluation_result['Stability']['grade']}
-
-[요청]
-1. 상담사의 강점 2가지 이상
-2. 상담사의 약점 2가지 이상
-3. 상담사가 실제로 참고할 수 있는 구체적 코칭 멘트 2가지 이상
-
-[출력 예시]
-- 강점:
-- 약점:
-- 코칭 멘트:
-"""
-    data = {"contents": [{"parts": [{"text": prompt}]}]}
-    response = requests.post(
-        f"{GEMINI_API_URL}?key={GEMINI_API_KEY}",
-        headers=headers,
-        data=json.dumps(data)
+# 4. Gemini 프롬프트 생성
+def make_gemini_prompt(evaluation_result, session_id):
+    prompt = (
+        f"아래는 상담사의 5가지 평가 지표별 점수와 등급입니다. "
+        "각 항목을 참고하여 상담사의 강점, 약점, 그리고 구체적인 개선점 및 코칭 멘트를 작성해 주세요.\n\n"
+        f"- 정중함 및 언어 품질 (Politeness): 점수 {evaluation_result['Politeness']['score']:.2f}, 등급 {evaluation_result['Politeness']['grade']}\n"
+        f"- 공감적 소통 (Empathy): 점수 {evaluation_result['Empathy']['score']:.2f}, 등급 {evaluation_result['Empathy']['grade']}\n"
+        f"- 문제 해결 역량 (Problem Solving): 점수 {evaluation_result['ProblemSolving']['score']:.2f}, 등급 {evaluation_result['ProblemSolving']['grade']}\n"
+        f"- 감정 안정성 (Emotional Stability): 점수 {evaluation_result['EmotionalStability']['score']:.2f}, 등급 {evaluation_result['EmotionalStability']['grade']}\n"
+        f"- 대화 흐름 및 응대 태도 (Stability): 점수 {evaluation_result['Stability']['score']:.2f}, 등급 {evaluation_result['Stability']['grade']}\n\n"
+        "[요청]\n"
+        "1. 상담사의 강점 2가지 이상\n"
+        "2. 상담사의 약점 2가지 이상\n"
+        "3. 상담사가 실제로 참고할 수 있는 구체적 개선점/코칭 멘트 2가지 이상\n\n"
+        "[출력 형식]\n"
+        f"## 상담사 평가 분석 (세션 ID: {session_id})\n"
+        "- 강점:\n"
+        "  - 예시1\n"
+        "  - 예시2\n"
+        "- 약점:\n"
+        "  - 예시1\n"
+        "  - 예시2\n"
+        "- 개선점/코칭 멘트:\n"
+        "  - 예시1\n"
+        "  - 예시2\n"
     )
-    if response.status_code == 200:
-        result = response.json()
-        try:
-            feedback = result['candidates'][0]['content']['parts'][0]['text']
-        except Exception as e:
-            feedback = f"Gemini 응답 파싱 오류: {e}\n{result}"
-    else:
-        feedback = f"Gemini API 호출 실패: {response.status_code}\n{response.text}"
+    return prompt
 
-    eval_results.append({
-        'session_id': session_id,
-        'evaluation': evaluation_result,
-        'feedback': feedback
-    })
-    print(f"[세션 {session_id}] 분석 완료!")
+# 5. Gemini API 호출
+headers = {"Content-Type": "application/json"}
+data = {
+    "contents": [
+        {"parts": [{"text": make_gemini_prompt(evaluation_result, session_id)}]}
+    ]
+}
 
-# 6. 전체 결과 출력
-print("\n=== 전체 세션 분석 결과 ===")
-for r in eval_results:
-    print(f"\n[세션 ID: {r['session_id']}]")
-    for key, value in r['evaluation'].items():
-        print(f"{key}: 점수 {value['score']:.3f}, 등급 {value['grade']}")
-    print("-" * 40)
-    print(r['feedback'])
-    print("=" * 60) 
+response = requests.post(
+    f"{GEMINI_API_URL}?key={GEMINI_API_KEY}",
+    headers=headers,
+    json=data
+)
+
+if response.status_code == 200:
+    result = response.json()
+    print(result['candidates'][0]['content']['parts'][0]['text'])
+else:
+    print("Gemini API 호출 실패:", response.status_code)
+    print(response.text) 

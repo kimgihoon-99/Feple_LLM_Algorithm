@@ -12,11 +12,11 @@
 peple_LLM_v2/
 │
 ├── absolute_grading/         # 각 지표별 절대평가(자동화) 스크립트
-│   ├── grade_politeness_auto.py
-│   ├── grade_empathy_auto.py
-│   ├── grade_emotional_stability_auto.py
-│   ├── grade_stability_auto.py
-│   └── grade_problem_solving.py
+│   ├── grade_politeness_auto.py      # 정중함 평가 + evaluate_politeness() 함수
+│   ├── grade_empathy_auto.py         # 공감 평가 + evaluate_empathy() 함수
+│   ├── grade_emotional_stability_auto.py  # 감정안정성 평가 + evaluate_emotional_stability() 함수
+│   ├── grade_stability_auto.py       # 대화흐름 평가 + evaluate_stability() 함수
+│   └── grade_problem_solving.py      # 문제해결 평가 + evaluate_problem_solving() 함수
 │
 ├── evaluation_algorithms/    # 각 평가지표별 점수 산출 알고리즘
 │   ├── politeness.py
@@ -44,8 +44,7 @@ peple_LLM_v2/
 │
 ├── calculate_cutoff.py       # cut-off 및 minmax 기준선 산출/갱신 스크립트
 ├── batch_grade_all.py        # 5개 평가 스크립트 일괄 실행 배치
-├── integrated_evaluation.py  # 5대 지표 통합 평가 및 Gemini 피드백 생성
-├── integrated_evaluation_batch.py # (확장) 통합 평가 배치 스크립트
+├── LLM_evaluation_batch.py   # 🆕 LLM 기반 통합 평가 및 Gemini 피드백 생성 (메인 스크립트)
 └── README.md                 # (바로 이 파일)
 ```
 
@@ -57,6 +56,7 @@ peple_LLM_v2/
 
 - `data/dummy_data.csv` : 기준선 산출용(기존) 데이터
 - `data/new_data.csv` : 신규 평가 데이터 (없으면 dummy_data로 평가)
+  - **세션 ID 포함**: `session_id` 컬럼이 있으면 LLM 피드백에 표시됨
 
 ### 2. cut-off 및 minmax 기준선 산출
 
@@ -74,12 +74,31 @@ python batch_grade_all.py
 - `new_data.csv`가 없으면 dummy_data.csv로 평가
 - 신규 데이터가 기존 min/max 범위를 벗어나면 cut-off/minmax를 자동 재산출
 
-### 4. 통합 평가 및 Gemini 피드백
+### 4. 🆕 LLM 기반 통합 평가 및 Gemini 피드백 (메인 기능)
 
 ```bash
-python integrated_evaluation.py
+python LLM_evaluation_batch.py
 ```
-- 5대 지표 점수/등급 산출 및 Gemini API를 통한 강점/약점/코칭멘트 자동 생성
+
+**주요 특징:**
+- **자동 모델 선택**: Gemini API에서 사용 가능한 모델을 자동으로 조회하여 최적 모델 선택
+- **외부 호출 가능한 평가 함수**: 각 지표별 `evaluate_XXX(df)` 함수로 DataFrame 입력 → 점수/등급 반환
+- **세션 ID 포함 피드백**: 세션 ID가 LLM 분석 결과 맨 위에 표시
+- **구조화된 프롬프트**: 강점/약점/코칭멘트를 체계적으로 생성
+
+**출력 예시:**
+```
+## 상담사 평가 분석 (세션 ID: 99999)
+- 강점:
+  - 정중함 및 언어 품질이 우수함
+  - 공감적 소통 능력이 뛰어남
+- 약점:
+  - 문제 해결 역량 개선 필요
+  - 대화 흐름에서 개선 여지 있음
+- 개선점/코칭 멘트:
+  - 구체적인 해결책 제시 훈련 필요
+  - 대화 중단 최소화를 위한 기법 학습 권장
+```
 
 ---
 
@@ -98,6 +117,10 @@ python integrated_evaluation.py
 - cut-off는 각 지표별 점수 분포의 백분위(90/80/70/...)로 산출되며, 문제해결(problem_solving)은 discrete 점수별 절대 등급 매핑을 사용합니다.
 - 이 구조로 인해, 데이터가 추가될 때마다 평가 기준이 자동으로 최신화되고, 이상치에 의한 왜곡도 방지됩니다.
 
+### 4. 🆕 모듈화된 평가 함수
+- 각 지표별 평가 알고리즘에 `evaluate_XXX(df)` 함수가 추가되어, 외부에서 DataFrame을 입력받아 점수/등급 DataFrame을 반환
+- 이를 통해 LLM 평가 스크립트에서 각 지표별 평가 결과를 쉽게 통합 가능
+
 ---
 
 ## 평가 방식 요약
@@ -111,12 +134,32 @@ python integrated_evaluation.py
 
 ---
 
+## 🆕 LLM 통합 평가 시스템
+
+### 핵심 기능
+1. **자동 모델 선택**: Gemini API에서 사용 가능한 모델을 자동 조회하여 최적 모델 선택
+2. **세션별 분석**: `new_data.csv`의 각 세션에 대해 5대 지표 평가 후 LLM 피드백 생성
+3. **구조화된 출력**: 강점/약점/코칭멘트를 체계적으로 정리하여 제공
+4. **세션 ID 추적**: 각 분석 결과에 세션 ID를 명시하여 추적 가능
+
+### 사용법
+```bash
+# 1. new_data.csv에 평가할 데이터 준비 (session_id 컬럼 포함 권장)
+# 2. 환경변수 GEMINI_API_KEY 설정
+# 3. 실행
+python LLM_evaluation_batch.py
+```
+
+---
+
 ## 기타 참고
 
 - `legacy/` 폴더는 구버전(상대평가 등) 코드로, 실전 운영에는 사용하지 않음
+- `LLM_legacy/` 폴더는 구버전 LLM 평가 스크립트로, 현재는 `LLM_evaluation_batch.py` 사용
 - 모든 자동화 스크립트는 robust한 경로 처리, 예외처리, 자동 갱신 구조로 완성
 - PowerShell에서 여러 파이썬 파일을 한 번에 실행하려면 `;`(세미콜론) 사용
 
 ---
 
 **실전 서비스 수준의 robust한 상담사 평가 자동화 파이프라인!** 
+**🆕 LLM 기반 지능형 피드백 시스템으로 업그레이드 완료!** 
