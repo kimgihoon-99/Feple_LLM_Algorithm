@@ -118,4 +118,9 @@ for col in cols:
 eval_df['Politeness_score'] = eval_df.apply(compute_politeness_score, axis=1)
 eval_df['Politeness_Grade'] = eval_df['Politeness_score'].apply(lambda x: grade_from_cutoff(x, cutoffs))
 
-print(eval_df[['Politeness_score', 'Politeness_Grade']].head(20)) 
+def get_politeness_results():
+    """외부에서 호출 가능한 결과 반환 함수"""
+    return eval_df[['Politeness_score', 'Politeness_Grade']].copy()
+
+if __name__ == "__main__":
+    print(eval_df[['Politeness_score', 'Politeness_Grade']].head(20)) 

@@ -30,6 +30,12 @@ df = pd.read_csv(eval_path)
 valid_scores = {0.0, 0.2, 0.6, 1.0}
 if not set(df['suggestions']).issubset(valid_scores):
     raise ValueError("유효하지 않은 점수 발견")
+df['ProblemSolving_score'] = df['suggestions']
 df['ProblemSolving_Grade'] = df['suggestions'].apply(grade_from_score)
 
-print(df[['suggestions', 'ProblemSolving_Grade']].head(20)) 
+def get_problem_solving_results():
+    """외부에서 호출 가능한 결과 반환 함수"""
+    return df[['ProblemSolving_score', 'ProblemSolving_Grade']].copy()
+
+if __name__ == "__main__":
+    print(df[['suggestions', 'ProblemSolving_Grade']].head(20)) 

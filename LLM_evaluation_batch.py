@@ -1,23 +1,35 @@
 import os
 from dotenv import load_dotenv
-import requests
-import json
 import pandas as pd
 import numpy as np
 import sys
-sys.path.append('./evaluation_algorithms')
-from politeness import evaluate_politeness
-from empathy import evaluate_empathy
-from problem_solving import evaluate_problem_solving
-from emotional_stability import evaluate_emotional_stability
-from stability import evaluate_stability
+from openai import OpenAI
+
+# absolute_grading 모듈들 import
+sys.path.append('./absolute_grading')
+from grade_politeness_auto import get_politeness_results
+from grade_empathy_auto import get_empathy_results
+from grade_emotional_stability_auto import get_emotional_stability_results
+from grade_stability_auto import get_stability_results
+from grade_problem_solving import get_problem_solving_results
 
 # .env 파일에서 환경변수 불러오기
 load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=OPENAI_API_KEY)
 
-# 1. 더미 데이터 로드 (각 row가 하나의 상담 세션, session_id 컬럼 포함 가정)
-df = pd.read_excel('data/dummy_data.xlsx')
+# 1. 데이터 로드 (new_data.csv 우선, 없으면 dummy_data.csv)
+DATA_PATH = 'data/new_data.csv'
+DUMMY_PATH = 'data/dummy_data.csv'
+
+if os.path.exists(DATA_PATH):
+    print(f"[INFO] new_data.csv로 평가를 진행합니다.")
+    df = pd.read_csv(DATA_PATH)
+else:
+    print(f"[INFO] new_data.csv가 없어 dummy_data.csv로 평가를 진행합니다.")
+    df = pd.read_csv(DUMMY_PATH)
+
+df.columns = df.columns.str.strip()
 
 # session_id가 없으면 자동 생성
 def ensure_session_id(df):
@@ -31,49 +43,19 @@ df = ensure_session_id(df)
 # 2. 결과 저장 리스트
 eval_results = []
 
-# 3. 지원 모델 자동 선택 함수
-def get_gemini_model():
-    model_list_url = f"https://generativelanguage.googleapis.com/v1/models?key={GEMINI_API_KEY}"
-    model_list_resp = requests.get(model_list_url)
-    model_name = None
-    if model_list_resp.status_code == 200:
-        models = model_list_resp.json().get('models', [])
-        preferred = ['gemini-1.5-pro', 'gemini-1.0-pro', 'gemini-pro', 'gemini-1.5-flash']
-        for p in preferred:
-            for m in models:
-                if m['name'].endswith(p):
-                    model_name = m['name'].split('/')[-1]
-                    break
-            if model_name:
-                break
-        if not model_name and models:
-            model_name = models[0]['name'].split('/')[-1]
-    else:
-        raise Exception('모델 리스트 조회 실패')
-    return model_name
+# 3. OpenAI 모델 설정
+MODEL_NAME = "gpt-4o-mini"
 
-model_name = get_gemini_model()
-GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1/models/{model_name}:generateContent"
-headers = {"Content-Type": "application/json"}
+# 4. absolute_grading 시스템에서 평가 결과 가져오기
+print("[INFO] absolute_grading 시스템에서 평가 결과를 가져오는 중...")
 
-# 4. 전체 세션에 대해 평가지표별 일괄 평가
-politeness_cols = ['honorific_ratio', 'positive_word_ratio', 'negative_word_ratio', 'euphonious_word_ratio']
-empathy_cols = ['empathy_ratio', 'apology_ratio']
-problem_cols = ['suggestions']
-emotional_cols = ['customer_sentiment_early', 'customer_sentiment_late']
-stability_cols = ['interruption_count', 'silence_ratio', 'talk_ratio']
+politeness_result = get_politeness_results()
+empathy_result = get_empathy_results()
+emotional_result = get_emotional_stability_results()
+stability_result = get_stability_results()
+problem_result = get_problem_solving_results()
 
-politeness_df = df[politeness_cols].copy()
-empathy_df = df[empathy_cols].copy()
-problem_df = df[problem_cols].copy()
-emotional_df = df[emotional_cols].copy()
-stability_df = df[stability_cols].copy()
-
-politeness_result = evaluate_politeness(politeness_df)
-empathy_result = evaluate_empathy(empathy_df)
-problem_result = evaluate_problem_solving(problem_df)
-emotional_result = evaluate_emotional_stability(emotional_df)
-stability_result = evaluate_stability(stability_df)
+print(f"[INFO] 평가 결과 로드 완료 - 총 {len(df)}개 세션")
 
 # 5. 각 세션별 반복 처리 (row별로 결과 추출)
 for idx, row in df.iterrows():
@@ -88,8 +70,8 @@ for idx, row in df.iterrows():
             "grade": empathy_result['Empathy_Grade'].iloc[idx]
         },
         "ProblemSolving": {
-            "score": float(problem_result['Problem_Solving_score'].iloc[idx]),
-            "grade": problem_result['Problem_Solving_Grade'].iloc[idx]
+            "score": float(problem_result['ProblemSolving_score'].iloc[idx]),
+            "grade": problem_result['ProblemSolving_Grade'].iloc[idx]
         },
         "EmotionalStability": {
             "score": float(emotional_result['EmotionalStability_score'].iloc[idx]),
@@ -101,40 +83,85 @@ for idx, row in df.iterrows():
         }
     }
 
-    # Gemini 프롬프트 생성
+    # OpenAI 프롬프트 생성
     prompt = f"""
-아래는 상담사의 5가지 평가 지표별 점수와 등급입니다. 각 항목을 참고하여 상담사의 강점, 약점, 그리고 구체적인 코칭 멘트를 작성해 주세요.
+당신은 상담사 교육 전문가입니다. 아래 5가지 핵심 지표별 평가 결과를 바탕으로 상담사의 성과를 체계적으로 분석하고 실용적인 코칭을 제공해 주세요.
 
-- 정중함 및 언어 품질 (Politeness): 점수 {evaluation_result['Politeness']['score']:.3f}, 등급 {evaluation_result['Politeness']['grade']}
-- 공감적 소통 (Empathy): 점수 {evaluation_result['Empathy']['score']:.3f}, 등급 {evaluation_result['Empathy']['grade']}
-- 문제 해결 역량 (Problem Solving): 점수 {evaluation_result['ProblemSolving']['score']:.3f}, 등급 {evaluation_result['ProblemSolving']['grade']}
-- 감정 안정성 (Emotional Stability): 점수 {evaluation_result['EmotionalStability']['score']:.3f}, 등급 {evaluation_result['EmotionalStability']['grade']}
-- 대화 흐름 및 응대 태도 (Stability): 점수 {evaluation_result['Stability']['score']:.3f}, 등급 {evaluation_result['Stability']['grade']}
+📊 **평가 결과 분석**
+1. **정중함 및 언어 품질** (점수: {evaluation_result['Politeness']['score']:.3f}, 등급: {evaluation_result['Politeness']['grade']})
+   - 존댓말 사용률, 긍정적 언어 사용, 부정적 표현 최소화 등을 종합 평가
+   - 등급 기준: A(상위10%), B(상위20%), C(상위30%), D(상위40%), E(상위50%), F(상위60%), G(하위40%)
 
-[요청]
-1. 상담사의 강점 2가지 이상
-2. 상담사의 약점 2가지 이상
-3. 상담사가 실제로 참고할 수 있는 구체적 코칭 멘트 2가지 이상
+2. **공감적 소통** (점수: {evaluation_result['Empathy']['score']:.3f}, 등급: {evaluation_result['Empathy']['grade']})
+   - 고객 감정 이해 표현, 적절한 사과 및 위로의 말 사용 정도
+   - 고객과의 정서적 연결 형성 능력 측정
 
-[출력 예시]
-- 강점:
-- 약점:
-- 코칭 멘트:
+3. **문제 해결 역량** (점수: {evaluation_result['ProblemSolving']['score']:.3f}, 등급: {evaluation_result['ProblemSolving']['grade']})
+   - 고객 문제에 대한 구체적 해결책 제시 능력
+   - 등급: A(완전해결), B(대부분해결), C(부분해결), D(해결방안미흡)
+
+4. **감정 안정성** (점수: {evaluation_result['EmotionalStability']['score']:.3f}, 등급: {evaluation_result['EmotionalStability']['grade']})
+   - 상담 과정에서 고객의 감정 상태 개선 정도
+   - 고객 만족도와 직결되는 핵심 지표
+
+5. **대화 흐름 및 응대 태도** (점수: {evaluation_result['Stability']['score']:.3f}, 등급: {evaluation_result['Stability']['grade']})
+   - 대화 중단 최소화, 적절한 침묵 유지, 균형잡힌 대화 진행 능력
+
+🎯 **상세 분석 요청**
+
+**1. 핵심 강점 (상위 2-3개 지표 기준)**
+- 각 강점이 고객 만족도에 미치는 구체적 영향
+- 해당 강점을 더욱 발전시킬 수 있는 방안
+- 다른 지표 개선에 활용할 수 있는 연결점
+
+**2. 주요 개선 영역 (하위 2-3개 지표 기준)**
+- 현재 등급의 의미와 개선 시 기대효과
+- 개선이 시급한 이유 (고객 경험 관점)
+- 단계별 개선 로드맵 제시
+
+**3. 실행 가능한 코칭 전략**
+- 즉시 적용 가능한 구체적 행동 방안 (3가지)
+- 중장기 역량 개발 계획 (2가지)
+- 성과 측정 및 피드백 방법
+
+**4. 개선 우선순위**
+- 가장 시급한 개선 영역 1순위 선정 및 근거
+- 해당 영역 개선 시 전체 상담 품질에 미치는 파급효과
+
+[출력 형식]
+🌟 **핵심 강점**
+- 
+- 
+
+⚠️ **주요 개선 영역**
+- 
+- 
+
+💡 **실행 코칭 전략**
+[즉시 실행]
+1. 
+2. 
+3. 
+
+[중장기 개발]
+1. 
+2. 
+
+🎯 **개선 우선순위**
+1순위: [영역명] - [구체적 근거와 기대효과]
 """
-    data = {"contents": [{"parts": [{"text": prompt}]}]}
-    response = requests.post(
-        f"{GEMINI_API_URL}?key={GEMINI_API_KEY}",
-        headers=headers,
-        data=json.dumps(data)
-    )
-    if response.status_code == 200:
-        result = response.json()
-        try:
-            feedback = result['candidates'][0]['content']['parts'][0]['text']
-        except Exception as e:
-            feedback = f"Gemini 응답 파싱 오류: {e}\n{result}"
-    else:
-        feedback = f"Gemini API 호출 실패: {response.status_code}\n{response.text}"
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=1500,
+            temperature=0.7
+        )
+        feedback = response.choices[0].message.content
+    except Exception as e:
+        feedback = f"OpenAI API 호출 실패: {e}"
 
     eval_results.append({
         'session_id': session_id,
@@ -144,11 +171,13 @@ for idx, row in df.iterrows():
     print(f"[세션 {session_id}] 분석 완료!")
 
 # 6. 전체 결과 출력
-print("\n=== 전체 세션 분석 결과 ===")
+print(f"\n=== 전체 세션 분석 결과 (총 {len(eval_results)}개 세션) ===")
 for r in eval_results:
     print(f"\n[세션 ID: {r['session_id']}]")
+    print("📊 실제 평가 결과:")
     for key, value in r['evaluation'].items():
-        print(f"{key}: 점수 {value['score']:.3f}, 등급 {value['grade']}")
+        print(f"  {key}: 점수 {value['score']:.3f}, 등급 {value['grade']}")
     print("-" * 40)
+    print("🤖 OpenAI GPT 피드백:")
     print(r['feedback'])
     print("=" * 60) 

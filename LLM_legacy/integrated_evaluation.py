@@ -1,9 +1,8 @@
 import os
 from dotenv import load_dotenv
-import requests
-import json
 import pandas as pd
 import numpy as np
+from openai import OpenAI
 
 # 5가지 평가지표 알고리즘 import
 import sys
@@ -16,7 +15,8 @@ from stability import evaluate_stability
 
 # .env 파일에서 환경변수 불러오기
 load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 def run_integrated_evaluation():
     print("=== 5가지 상담사 평가지표 통합 평가 시스템 ===")
@@ -128,65 +128,41 @@ def run_integrated_evaluation():
 - 코칭 멘트:
 """
     
-    # 5. Gemini API 호출
-    print("\n[5단계] Gemini API 호출...")
+    # 5. OpenAI API 호출
+    print("\n[5단계] OpenAI API 호출...")
     
-    # 지원 모델 리스트 조회 및 자동 선택
-    model_list_url = f"https://generativelanguage.googleapis.com/v1/models?key={GEMINI_API_KEY}"
-    model_list_resp = requests.get(model_list_url)
-    model_name = None
-    
-    if model_list_resp.status_code == 200:
-        models = model_list_resp.json().get('models', [])
-        preferred = ['gemini-1.5-pro', 'gemini-1.0-pro', 'gemini-pro', 'gemini-1.5-flash']
-        for p in preferred:
-            for m in models:
-                if m['name'].endswith(p):
-                    model_name = m['name'].split('/')[-1]
-                    break
-            if model_name:
-                break
-        if not model_name and models:
-            model_name = models[0]['name'].split('/')[-1]
-    else:
-        print("모델 리스트 조회 실패")
-        return
-    
-    GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1/models/{model_name}:generateContent"
-    
-    headers = {"Content-Type": "application/json"}
-    data = {"contents": [{"parts": [{"text": prompt}]}]}
-    
-    response = requests.post(
-        f"{GEMINI_API_URL}?key={GEMINI_API_KEY}",
-        headers=headers,
-        data=json.dumps(data)
-    )
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=1500,
+            temperature=0.7
+        )
+        feedback = response.choices[0].message.content
+        api_success = True
+    except Exception as e:
+        print(f"OpenAI API 호출 실패: {e}")
+        feedback = f"API 호출 실패: {e}"
+        api_success = False
     
     # 6. 결과 출력
     print("\n[6단계] 최종 결과 출력...")
     print("=" * 60)
     
-    if response.status_code == 200:
-        result = response.json()
-        try:
-            feedback = result['candidates'][0]['content']['parts'][0]['text']
-            
-            print("[실제 산출된 평가 지표별 점수 및 등급]")
-            print("-" * 50)
-            for key, value in evaluation_result.items():
-                print(f"{key}: 점수 {value['score']:.3f}, 등급 {value['grade']}")
-            print("-" * 50)
-            
-            print("[Gemini AI 상담사 피드백 결과]")
-            print(feedback)
-            
-        except Exception as e:
-            print("Gemini 응답 파싱 오류:", e)
-            print(result)
+    if api_success:
+        print("[실제 산출된 평가 지표별 점수 및 등급]")
+        print("-" * 50)
+        for key, value in evaluation_result.items():
+            print(f"{key}: 점수 {value['score']:.3f}, 등급 {value['grade']}")
+        print("-" * 50)
+        
+        print("[OpenAI GPT 상담사 피드백 결과]")
+        print(feedback)
     else:
-        print("Gemini API 호출 실패:", response.status_code)
-        print(response.text)
+        print("OpenAI API 호출 실패")
+        print(feedback)
     
     print("=" * 60)
     print("통합 평가 완료!")

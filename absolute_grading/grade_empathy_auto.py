@@ -96,4 +96,9 @@ for col in cols:
 eval_df['Empathy_score'] = eval_df.apply(compute_empathy_score, axis=1)
 eval_df['Empathy_Grade'] = eval_df['Empathy_score'].apply(lambda x: grade_from_cutoff(x, cutoffs))
 
-print(eval_df[['Empathy_score', 'Empathy_Grade']].head(20)) 
+def get_empathy_results():
+    """외부에서 호출 가능한 결과 반환 함수"""
+    return eval_df[['Empathy_score', 'Empathy_Grade']].copy()
+
+if __name__ == "__main__":
+    print(eval_df[['Empathy_score', 'Empathy_Grade']].head(20)) 

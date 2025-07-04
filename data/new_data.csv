@@ -1,2 +1,2 @@
 session_id,mid_category,result_label,Profane,honorific_ratio,positive_word_ratio,negative_word_ratio,euphonious_word_ratio,empathy_ratio,apology_ratio,suggestions,customer_sentiment_early,customer_sentiment_late,customer_sentiment_trend,avg_response_latency,interruption_count,silence_ratio,talk_ratio
-44444,기술지원,만족,0,1100,990,110,110,110,110,1.0,110,110,110,110,110,110,110
+40501,멤버십,만족,0,74.3,11.6,5.3,8.0,3.2,0.1,0.2,0.59,0.18,0.09,1.31,0,0.15,0.51
