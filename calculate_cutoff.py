@@ -39,13 +39,13 @@ def get_cutoffs(scores, key=None):
         }
     else:
         return {
-            "A+": float(np.percentile(scores, 90)),
-            "A":  float(np.percentile(scores, 80)),
-            "B+": float(np.percentile(scores, 70)),
-            "B":  float(np.percentile(scores, 60)),
-            "C+": float(np.percentile(scores, 50)),
-            "C":  float(np.percentile(scores, 40)),
-            "D":  -1e9
+            "A": float(np.percentile(scores, 90)),
+            "B": float(np.percentile(scores, 80)),
+            "C": float(np.percentile(scores, 70)),
+            "D": float(np.percentile(scores, 60)),
+            "E": float(np.percentile(scores, 50)),
+            "F": float(np.percentile(scores, 40)),
+            "G": -1e9
         }
 
 def get_minmax(df, cols):

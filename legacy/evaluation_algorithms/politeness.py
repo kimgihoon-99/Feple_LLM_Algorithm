@@ -13,13 +13,13 @@ def compute_politeness_score(row):
     return (hr + pr + er + (1 - nr)) / 4
 
 def grade_from_percentile(p):
-    if   p >= 0.90: return "A+"
-    elif p >= 0.80: return "A"
-    elif p >= 0.70: return "B+"
-    elif p >= 0.60: return "B"
-    elif p >= 0.50: return "C+"
-    elif p >= 0.40: return "C"
-    else:           return "D"
+    if   p >= 0.90: return "A"
+    elif p >= 0.80: return "B"
+    elif p >= 0.70: return "C"
+    elif p >= 0.60: return "D"
+    elif p >= 0.50: return "E"
+    elif p >= 0.40: return "F"
+    else:           return "G"
 
 def evaluate_politeness(df):
     df = df.copy()

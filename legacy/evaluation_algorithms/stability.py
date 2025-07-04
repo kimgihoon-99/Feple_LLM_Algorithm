@@ -44,15 +44,15 @@ def compute_stability_score_row(ic_norm: float, sr_norm: float, tr_norm: float) 
 
 def grade_from_percentile(p: float) -> str:
     """
-    백분위(p)에 따라 A+, A, B+, B, C+, C, D 등급 반환.
+    백분위(p)에 따라 A, B, C, D, E, F, G 등급 반환.
     """
-    if p >= 0.90: return "A+"
-    if p >= 0.70: return "A"
-    if p >= 0.50: return "B+"
-    if p >= 0.30: return "B"
-    if p >= 0.15: return "C+"
-    if p >= 0.05: return "C"
-    return "D"
+    if p >= 0.90: return "A"
+    if p >= 0.70: return "B"
+    if p >= 0.50: return "C"
+    if p >= 0.30: return "D"
+    if p >= 0.15: return "E"
+    if p >= 0.05: return "F"
+    return "G"
 
 def compute_stability_score_and_grade(
     data: list[dict],

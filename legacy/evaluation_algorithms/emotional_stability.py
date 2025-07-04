@@ -27,13 +27,13 @@ def compute_emotional_stability_score(row):
     return max(0.0, min(raw, 1.0))
 
 def grade_from_percentile(p):
-    if   p >= 0.90: return "A+"
-    elif p >= 0.80: return "A"
-    elif p >= 0.70: return "B+"
-    elif p >= 0.60: return "B"
-    elif p >= 0.50: return "C+"
-    elif p >= 0.40: return "C"
-    else:           return "D"
+    if   p >= 0.90: return "A"
+    elif p >= 0.80: return "B"
+    elif p >= 0.70: return "C"
+    elif p >= 0.60: return "D"
+    elif p >= 0.50: return "E"
+    elif p >= 0.40: return "F"
+    else:           return "G"
 
 def evaluate_emotional_stability(df):
     # Min-Max 정규화 적용
