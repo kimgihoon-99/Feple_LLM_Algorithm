@@ -2,11 +2,11 @@ import pandas as pd
 import numpy as np
 import json
 import os
-from evaluation_algorithms.politeness import evaluate_politeness
-from evaluation_algorithms.empathy import evaluate_empathy
-from evaluation_algorithms.problem_solving import compute_problem_solving_score_and_grade
-from evaluation_algorithms.emotional_stability import evaluate_emotional_stability
-from evaluation_algorithms.stability import compute_stability_score_and_grade
+from legacy.evaluation_algorithms.politeness import evaluate_politeness
+from legacy.evaluation_algorithms.empathy import evaluate_empathy
+from legacy.evaluation_algorithms.problem_solving import compute_problem_solving_score_and_grade
+from legacy.evaluation_algorithms.emotional_stability import evaluate_emotional_stability
+from legacy.evaluation_algorithms.stability import compute_stability_score_and_grade
 
 # robust하게 현재 파일 기준으로 데이터 경로 지정
 DATA_PATH = os.path.join(os.path.dirname(__file__), 'data', 'dummy_data.csv')
@@ -39,13 +39,13 @@ def get_cutoffs(scores, key=None):
         }
     else:
         return {
-            "A+": float(np.percentile(scores, 90)),
-            "A":  float(np.percentile(scores, 80)),
-            "B+": float(np.percentile(scores, 70)),
-            "B":  float(np.percentile(scores, 60)),
-            "C+": float(np.percentile(scores, 50)),
-            "C":  float(np.percentile(scores, 40)),
-            "D":  -1e9
+            "A": float(np.percentile(scores, 90)),
+            "B":  float(np.percentile(scores, 80)),
+            "C": float(np.percentile(scores, 70)),
+            "D":  float(np.percentile(scores, 60)),
+            "E": float(np.percentile(scores, 50)),
+            "F":  float(np.percentile(scores, 40)),
+            "G":  -1e9
         }
 
 def get_minmax(df, cols):

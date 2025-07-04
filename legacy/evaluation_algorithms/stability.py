@@ -42,14 +42,17 @@ def compute_stability_score_row(ic_norm: float, sr_norm: float, tr_norm: float) 
     score = interrupt_score * 0.3 + silence_score * 0.4 + talk_score * 0.3
     return float(np.clip(score, 0.0, 1.0))
 
-def grade_from_cutoff(score, cutoffs):
-    if score >= cutoffs["A"]: return "A"
-    elif score >= cutoffs["B"]: return "B"
-    elif score >= cutoffs["C"]: return "C"
-    elif score >= cutoffs["D"]: return "D"
-    elif score >= cutoffs["E"]: return "E"
-    elif score >= cutoffs["F"]: return "F"
-    else: return "G"
+def grade_from_percentile(p: float) -> str:
+    """
+    백분위(p)에 따라 A, B, C, D, E, F, G 등급 반환.
+    """
+    if p >= 0.90: return "A"
+    if p >= 0.70: return "B"
+    if p >= 0.50: return "C"
+    if p >= 0.30: return "D"
+    if p >= 0.15: return "E"
+    if p >= 0.05: return "C"
+    return "D"
 
 def compute_stability_score_and_grade(
     data: list[dict],
@@ -86,7 +89,7 @@ def compute_stability_score_and_grade(
     df['percentile'] = df['score'].rank(pct=True)
     
     # 4) 등급 부여
-    df['grade'] = df['percentile'].apply(lambda p: grade_from_cutoff(p, {"A": 0.90, "B": 0.70, "C": 0.50, "D": 0.30, "E": 0.15, "F": 0.05}))
+    df['grade'] = df['percentile'].apply(grade_from_percentile)
 
     if return_all:
         return df['score'].tolist(), df['grade'].tolist()

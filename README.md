@@ -95,7 +95,7 @@ python integrated_evaluation.py
 
 ### 3. Periodic min/max & cut-off 재산출(자동 갱신)
 - 신규 데이터가 기존 min/max 범위를 벗어나면, dummy+신규 데이터를 합쳐 IQR 클리핑 후 **min/max와 cut-off를 함께 재산출**합니다.
-- cut-off는 각 지표별 점수 분포의 백분위(90/80/70/60/50/40)로 산출되며, 7등급(A~G)로 매핑됩니다. 문제해결(problem_solving)은 discrete 점수별 절대 등급 매핑을 사용합니다.
+- cut-off는 각 지표별 점수 분포의 백분위(90/80/70/...)로 산출되며, 문제해결(problem_solving)은 discrete 점수별 절대 등급 매핑을 사용합니다.
 - 이 구조로 인해, 데이터가 추가될 때마다 평가 기준이 자동으로 최신화되고, 이상치에 의한 왜곡도 방지됩니다.
 
 ---
@@ -106,7 +106,6 @@ python integrated_evaluation.py
   - min-max 정규화 + cut-off(점수 구간) 기반 절대평가
   - cut-off/minmax는 충분한 데이터로 산출, 신규 데이터가 범위 벗어나면 자동 갱신
   - IQR(사분위수) 기반 이상치 클리핑 적용(극단값 영향 최소화)
-  - **등급 체계: A, B, C, D, E, F, G (7등급)**
 - **문제해결**:  
   - discrete 점수(0.0, 0.2, 0.6, 1.0)에 대한 절대 등급 매핑
 

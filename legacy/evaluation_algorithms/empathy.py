@@ -11,14 +11,14 @@ def compute_empathy_score(row):
     score = er * 0.7 + ar * 0.3
     return max(0.0, min(score, 1.0))
 
-def grade_from_cutoff(score, cutoffs):
-    if score >= cutoffs["A"]: return "A"
-    elif score >= cutoffs["B"]: return "B"
-    elif score >= cutoffs["C"]: return "C"
-    elif score >= cutoffs["D"]: return "D"
-    elif score >= cutoffs["E"]: return "E"
-    elif score >= cutoffs["F"]: return "F"
-    else: return "G"
+def grade_from_percentile(p):
+    if   p >= 0.90: return "A"
+    elif p >= 0.80: return "B"
+    elif p >= 0.70: return "C"
+    elif p >= 0.60: return "D"
+    elif p >= 0.50: return "E"
+    elif p >= 0.40: return "F"
+    else:           return "G"
 
 def evaluate_empathy(df):
     df = df.copy()
@@ -26,7 +26,7 @@ def evaluate_empathy(df):
     df['apology_ratio_norm'] = minmax_normalize(df['apology_ratio'])
     df['Empathy_score'] = df.apply(compute_empathy_score, axis=1)
     df['percentile'] = df['Empathy_score'].rank(pct=True)
-    df['Empathy_Grade'] = df['percentile'].apply(lambda p: grade_from_cutoff(p, {"A": 0.9, "B": 0.8, "C": 0.7, "D": 0.6, "E": 0.5, "F": 0.4}))
+    df['Empathy_Grade'] = df['percentile'].apply(grade_from_percentile)
     return df[['empathy_ratio','apology_ratio','Empathy_score','percentile','Empathy_Grade']]
 
 if __name__ == "__main__":

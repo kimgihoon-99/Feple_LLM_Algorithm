@@ -102,12 +102,12 @@ else:
         scores.append(score)
     new_cutoff = {
         "A": float(np.percentile(scores, 90)),
-        "B": float(np.percentile(scores, 80)),
+        "B":  float(np.percentile(scores, 80)),
         "C": float(np.percentile(scores, 70)),
-        "D": float(np.percentile(scores, 60)),
+        "D":  float(np.percentile(scores, 60)),
         "E": float(np.percentile(scores, 50)),
-        "F": float(np.percentile(scores, 40)),
-        "G": -1e9
+        "F":  float(np.percentile(scores, 40)),
+        "G":  -1e9
     }
     with open(CUTOFF_PATH, 'w') as f:
         json.dump({'cutoff': new_cutoff, 'minmax': minmax}, f, indent=2)
