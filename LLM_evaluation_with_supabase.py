@@ -4,6 +4,9 @@ import pandas as pd
 import numpy as np
 import sys
 from openai import OpenAI
+from supabase import create_client, Client
+import json
+from datetime import datetime
 
 # absolute_grading 모듈들 import
 sys.path.append('./absolute_grading')
@@ -16,7 +19,27 @@ from grade_problem_solving import get_problem_solving_results
 # .env 파일에서 환경변수 불러오기
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=OPENAI_API_KEY)
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+# 클라이언트 초기화
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
+# Supabase 클라이언트 초기화
+def init_supabase():
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        print("[WARNING] Supabase 연결 정보가 없습니다. 결과는 로컬에만 출력됩니다.")
+        return None
+    
+    try:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        print("[INFO] Supabase 연결 성공!")
+        return supabase
+    except Exception as e:
+        print(f"[ERROR] Supabase 연결 실패: {e}")
+        return None
+
+supabase = init_supabase()
 
 # 1. 데이터 로드 (new_data.csv 우선, 없으면 dummy_data.csv)
 DATA_PATH = 'data/new_data.csv'
@@ -25,9 +48,11 @@ DUMMY_PATH = 'data/dummy_data.csv'
 if os.path.exists(DATA_PATH):
     print(f"[INFO] new_data.csv로 평가를 진행합니다.")
     df = pd.read_csv(DATA_PATH)
+    data_source = "new_data.csv"
 else:
     print(f"[INFO] new_data.csv가 없어 dummy_data.csv로 평가를 진행합니다.")
     df = pd.read_csv(DUMMY_PATH)
+    data_source = "dummy_data.csv"
 
 df.columns = df.columns.str.strip()
 
@@ -57,7 +82,45 @@ problem_result = get_problem_solving_results()
 
 print(f"[INFO] 평가 결과 로드 완료 - 총 {len(df)}개 세션")
 
-# 5. 각 세션별 반복 처리 (row별로 결과 추출)
+# 5. Supabase에 데이터 저장하는 함수
+def save_to_supabase(session_id, evaluation_result, feedback, data_source):
+    if not supabase:
+        return False
+    
+    try:
+        # 저장할 데이터 구성
+        data = {
+            "session_id": session_id,
+            "politeness_score": float(evaluation_result['Politeness']['score']),
+            "politeness_grade": evaluation_result['Politeness']['grade'],
+            "empathy_score": float(evaluation_result['Empathy']['score']),
+            "empathy_grade": evaluation_result['Empathy']['grade'],
+            "problem_solving_score": float(evaluation_result['ProblemSolving']['score']),
+            "problem_solving_grade": evaluation_result['ProblemSolving']['grade'],
+            "emotional_stability_score": float(evaluation_result['EmotionalStability']['score']),
+            "emotional_stability_grade": evaluation_result['EmotionalStability']['grade'],
+            "stability_score": float(evaluation_result['Stability']['score']),
+            "stability_grade": evaluation_result['Stability']['grade'],
+            "gpt_feedback": feedback,
+            "evaluation_model": MODEL_NAME,
+            "data_source": data_source
+        }
+        
+        # Supabase에 데이터 삽입
+        result = supabase.table('counselor_evaluations').insert(data).execute()
+        
+        if result.data:
+            print(f"[SUPABASE] 세션 {session_id} 데이터 저장 성공!")
+            return True
+        else:
+            print(f"[SUPABASE] 세션 {session_id} 데이터 저장 실패")
+            return False
+            
+    except Exception as e:
+        print(f"[SUPABASE ERROR] 세션 {session_id} 저장 중 오류: {e}")
+        return False
+
+# 6. 각 세션별 반복 처리 (row별로 결과 추출)
 for idx, row in df.iterrows():
     session_id = row['session_id']
     evaluation_result = {
@@ -108,7 +171,7 @@ for idx, row in df.iterrows():
 강점과 약점을 활용한 3-4줄의 구체적이고 실행 가능한 개선 방안 제시
 """
     try:
-        response = client.chat.completions.create(
+        response = openai_client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
                 {"role": "user", "content": prompt}
@@ -120,15 +183,22 @@ for idx, row in df.iterrows():
     except Exception as e:
         feedback = f"OpenAI API 호출 실패: {e}"
 
+    # Supabase에 저장
+    save_success = save_to_supabase(session_id, evaluation_result, feedback, data_source)
+    
     eval_results.append({
         'session_id': session_id,
         'evaluation': evaluation_result,
-        'feedback': feedback
+        'feedback': feedback,
+        'saved_to_supabase': save_success
     })
-    print(f"[세션 {session_id}] 분석 완료!")
+    print(f"[세션 {session_id}] 분석 완료! {'(Supabase 저장 성공)' if save_success else '(로컬만 저장)'}")
 
-# 6. 전체 결과 출력
+# 7. 전체 결과 출력
 print(f"\n=== 전체 세션 분석 결과 (총 {len(eval_results)}개 세션) ===")
+saved_count = sum(1 for r in eval_results if r.get('saved_to_supabase', False))
+print(f"📊 Supabase 저장: {saved_count}/{len(eval_results)}개 세션 성공")
+
 for r in eval_results:
     print(f"\n[세션 ID: {r['session_id']}]")
     print("📊 실제 평가 결과:")
@@ -137,4 +207,17 @@ for r in eval_results:
     print("-" * 40)
     print("🤖 OpenAI GPT 피드백:")
     print(r['feedback'])
-    print("=" * 60) 
+    if r.get('saved_to_supabase'):
+        print("✅ Supabase에 저장 완료")
+    else:
+        print("❌ Supabase 저장 실패")
+    print("=" * 60)
+
+# 8. 저장된 데이터 요약 정보
+if supabase and saved_count > 0:
+    print(f"\n🎯 **Supabase 저장 완료!**")
+    print(f"- 테이블: counselor_evaluations")
+    print(f"- 저장된 세션: {saved_count}개")
+    print(f"- 데이터 소스: {data_source}")
+    print(f"- 평가 모델: {MODEL_NAME}")
+    print(f"- 저장 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}") 
