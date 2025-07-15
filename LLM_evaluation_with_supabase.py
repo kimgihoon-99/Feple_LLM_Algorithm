@@ -149,6 +149,19 @@ def metrics_to_scores_and_grades(metrics):
         "Stability": {"score": stability_score, "grade": stability_grade}
     }
 
+# === 최종점수(final_score) 계산 함수 추가 ===
+def compute_final_score(scores):
+    score_list = [
+        scores["Politeness"]["score"],
+        scores["Empathy"]["score"],
+        scores["ProblemSolving"]["score"],
+        scores["EmotionalStability"]["score"],
+        scores["Stability"]["score"]
+    ]
+    avg_score = sum(score_list) / len(score_list)
+    final_score = round(avg_score * 100, 2)
+    return final_score
+
 # .env 파일에서 환경변수 불러오기
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -233,7 +246,16 @@ def run_llm_evaluation_with_scores(scores, transcript):
 
     대화: {transcript}
 
-    강점(상위 2개 지표), 약점(하위 2개 지표), 코칭멘트를 간결하게 작성해 주세요.
+    ** 강점 (상위 2개 지표)**
+    1. [지표명] (등급): 한 줄 설명
+    2. [지표명] (등급): 한 줄 설명
+
+    ** 약점 (하위 2개 지표)**  
+    1. [지표명] (등급): 한 줄 설명
+    2. [지표명] (등급): 한 줄 설명
+
+    ** 코칭 멘트**
+    강점과 약점을 활용한 3-4줄의 구체적이고 실행 가능한 개선 방안 제시
     """
     try:
         response = openai_client.chat.completions.create(
@@ -251,6 +273,7 @@ def save_analysis_feedback_to_supabase(row, scores, feedback):
     if not supabase:
         return False
     try:
+        final_score = compute_final_score(scores)  # 최종점수 계산 추가
         data = {
             "session_id": row["session_id"],
             "politeness_score": scores["Politeness"]["score"],
@@ -263,6 +286,7 @@ def save_analysis_feedback_to_supabase(row, scores, feedback):
             "emotional_stability_grade": scores["EmotionalStability"]["grade"],
             "stability_score": scores["Stability"]["score"],
             "stability_grade": scores["Stability"]["grade"],
+            "final_score": final_score,  # 최종점수 저장
             "gpt_feedback": feedback,
             "evaluation_model": MODEL_NAME,
             "data_source": "analysis_results"
